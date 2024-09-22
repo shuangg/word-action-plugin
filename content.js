@@ -6,7 +6,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     document.body.style.cursor = 'crosshair';
     alert('Click on the input field you want to use for searching.');
   } else if (request.action === "performSearch") {
-    performSearch(request.keyword, request.inputSelector, request.submitSelector);
+    performSearch(request.keyword, request.inputSelector, request.submitSelector, request.useEnterToSubmit);
   }
 });
 
@@ -61,21 +61,45 @@ function generateSelector(element) {
   return path.join(' > ');
 }
 
-function performSearch(keyword, inputSelector, submitSelector) {
-  console.log('Performing search:', keyword, inputSelector, submitSelector);
+function performSearch(keyword, inputSelector, submitSelector, useEnterToSubmit) {
+  console.log('Performing search:', keyword, inputSelector, submitSelector, useEnterToSubmit);
   const inputElement = document.querySelector(inputSelector);
   if (inputElement) {
+    // Set the value and trigger input event
     inputElement.value = keyword;
     inputElement.dispatchEvent(new Event('input', { bubbles: true }));
     
+    // Trigger change event
+    inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Small delay to ensure the value is set
     setTimeout(() => {
-      const submitElement = document.querySelector(submitSelector);
-      if (submitElement) {
-        submitElement.click();
-      } else if (inputElement.form) {
-        inputElement.form.submit();
+      if (useEnterToSubmit) {
+        // Simulate pressing Enter
+        const form = inputElement.closest('form');
+        if (form) {
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        } else {
+          inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        }
+      } else if (submitSelector) {
+        // Click the submit button
+        const submitButton = document.querySelector(submitSelector);
+        if (submitButton) {
+          submitButton.click();
+        } else {
+          console.error('Submit button not found');
+        }
+      } else {
+        // If no submit method is specified, try to submit the form
+        const form = inputElement.closest('form');
+        if (form) {
+          form.submit();
+        } else {
+          console.error('No form found and no submit method specified');
+        }
       }
-    }, 1000);
+    }, 100);
   } else {
     console.error('Input element not found');
   }

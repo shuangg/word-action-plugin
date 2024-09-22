@@ -1,36 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Search Action Replay</title>
   <style>
-    body { width: 300px; padding: 10px; font-family: Arial, sans-serif; }
-    label { display: block; margin-top: 10px; font-weight: bold; }
-    input, textarea, button { width: 100%; margin-bottom: 10px; padding: 5px; }
-    textarea { height: 100px; resize: vertical; }
-    button { cursor: pointer; background-color: #4CAF50; color: white; border: none; margin-top: 10px; }
-    button:hover { background-color: #45a049; }
+    body { 
+      width: 300px; 
+      padding: 10px; 
+      font-family: Arial, sans-serif; 
+    }
+    label { 
+      display: block; 
+      margin-top: 10px; 
+      font-weight: bold; 
+    }
+    input, textarea, button { 
+      width: 100%; 
+      margin-bottom: 10px; 
+      padding: 5px; 
+    }
+    textarea { 
+      height: 100px; 
+      resize: vertical; 
+    }
+    button { 
+      cursor: pointer; 
+      background-color: #4CAF50; 
+      color: white; 
+      border: none; 
+      margin-top: 10px; 
+    }
+    button:hover { 
+      background-color: #45a049; 
+    }
   </style>
 </head>
 <body>
+  <h1>Search Action Replay</h1>
+
   <label for="startUrl">Starting URL:</label>
   <input type="text" id="startUrl" placeholder="Enter starting URL">
   <button id="confirmStartUrl">Confirm Starting URL</button>
-
-  <label for="url">Target URL:</label>
-  <input type="text" id="url" placeholder="Enter URL">
 
   <label for="keyword">Search Keywords:</label>
   <textarea id="keyword" placeholder="Enter search keywords (one per line)"></textarea>
 
   <label for="inputSelector">Input Field Selector:</label>
   <input type="text" id="inputSelector" placeholder="Input field selector">
-  <button id="selectInputButton">Select Input Field</button>
+  <button id="reselectInputButton">Reselect Input Field</button>
 
   <label for="submitSelector">Submit Button Selector:</label>
   <input type="text" id="submitSelector" placeholder="Enter submit button selector (optional)">
 
-  <button id="saveButton">Save</button>
-  <button id="searchButton">Perform Search</button>
+  <div>
+    <input type="checkbox" id="useEnterToSubmit">
+    <label for="useEnterToSubmit">Use Enter key to submit form</label>
+  </div>
+
+  <div class="button-group">
+    <button id="saveButton">Save</button>
+    <button id="searchButton">Perform Search</button>
+  </div>
 
   <script src="popup.js"></script>
 </body>

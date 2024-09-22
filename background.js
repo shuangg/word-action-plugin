@@ -1,4 +1,5 @@
 let popupWindowId = null;
+let currentTabId = null;
 
 chrome.action.onClicked.addListener((tab) => {
   if (popupWindowId === null) {
@@ -26,32 +27,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "performSearch") {
     performSearch(request);
   } else if (request.action === "startSelectMode") {
-    chrome.tabs.query({active: true, lastFocusedWindow: true}, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, {action: "startSelectMode"});
-      }
-    });
+    if (currentTabId) {
+      chrome.tabs.sendMessage(currentTabId, {action: "startSelectMode"});
+    } else {
+      console.error('No current tab to start select mode');
+    }
   } else if (request.action === "inputSelected") {
     // Relay the message to the popup
     chrome.runtime.sendMessage({action: "inputSelected", selector: request.selector});
     // Also update the storage
     chrome.storage.sync.set({inputSelector: request.selector});
   } else if (request.action === "openStartUrl") {
-    openStartUrl(request.startUrl);
+    openStartUrl(request.startUrl, sendResponse);
+    return true; // Indicates that the response will be sent asynchronously
   }
 });
 
-function openStartUrl(startUrl) {
+function openStartUrl(startUrl, sendResponse) {
   if (startUrl) {
     chrome.tabs.create({ url: startUrl }, (tab) => {
       console.log('Opened starting URL:', startUrl);
+      currentTabId = tab.id;
+      sendResponse({ success: true });
     });
   } else {
     console.error('No starting URL provided');
+    sendResponse({ success: false });
   }
 }
 
 function performSearch(request) {
+  console.log('Performing search:', request);
   if (!request.startUrl) {
     console.error('No starting URL provided for search');
     return;
@@ -81,6 +87,7 @@ function continueSearch(tabId, request) {
     action: "performSearch",
     keyword: request.keywords[0], // For now, just use the first keyword
     inputSelector: request.inputSelector,
-    submitSelector: request.submitSelector
+    submitSelector: request.submitSelector,
+    useEnterToSubmit: request.useEnterToSubmit  // Make sure this line is present
   });
 }

@@ -4,10 +4,9 @@
   "version": "1.0",
   "description": "Replay a search action on a specific website",
   "permissions": [
-    "activeTab",
     "storage",
-    "scripting",
-    "tabs"
+    "tabs",
+    "activeTab"
   ],
   "host_permissions": [
     "<all_urls>"
