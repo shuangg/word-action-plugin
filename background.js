@@ -70,38 +70,53 @@ function performSearch(request) {
       return;
     }
 
+    processKeywords(request, 0)
+      .then(resolve)
+      .catch(reject);
+  });
+}
+
+function processKeywords(request, index) {
+  return new Promise((resolve, reject) => {
+    if (index >= request.keywords.length) {
+      console.log('All keywords processed');
+      resolve();
+      return;
+    }
+
+    const keyword = request.keywords[index];
+    console.log(`Processing keyword ${index + 1}/${request.keywords.length}: ${keyword}`);
+
     chrome.tabs.create({ url: request.startUrl }, (tab) => {
       chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
         if (tabId === tab.id && info.status === 'complete') {
           chrome.tabs.onUpdated.removeListener(listener);
           setTimeout(() => {
-            continueSearch(tab.id, request)
-              .then(resolve)
-              .catch(reject);
-          }, 1000); // Wait for 1 second after page load before continuing the search
+            chrome.tabs.sendMessage(tab.id, {
+              action: "performSearch",
+              keyword: keyword,
+              inputSelector: request.inputSelector,
+              submitSelector: request.submitSelector,
+              useEnterToSubmit: request.useEnterToSubmit
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(`Error sending message to content script: ${chrome.runtime.lastError.message}`));
+              } else if (response && response.success) {
+                console.log(`Search performed successfully for keyword: ${keyword}`);
+                setTimeout(() => {
+                  chrome.tabs.remove(tab.id, () => {
+                    processKeywords(request, index + 1)
+                      .then(resolve)
+                      .catch(reject);
+                  });
+                }, 5000); // Wait for 5 seconds before closing the tab and moving to the next keyword
+              } else {
+                reject(new Error(`Search failed for keyword: ${keyword}`));
+              }
+            });
+          }, 1000); // Wait for 1 second after page load before performing the search
         }
       });
-    });
-  });
-}
-
-function continueSearch(tabId, request) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, {
-      action: "performSearch",
-      keywords: request.keywords, // Pass all keywords
-      inputSelector: request.inputSelector,
-      submitSelector: request.submitSelector,
-      useEnterToSubmit: request.useEnterToSubmit
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(`Error sending message to content script: ${chrome.runtime.lastError.message}`));
-      } else if (response && response.success) {
-        console.log('Search performed successfully');
-        resolve();
-      } else {
-        reject(new Error('Search failed or no response from content script'));
-      }
     });
   });
 }

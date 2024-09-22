@@ -7,7 +7,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     alert('Click on the input field you want to use for searching.');
   } else if (request.action === "performSearch") {
     console.log('Received performSearch message:', request);
-    performSearch(request.keywords, request.inputSelector, request.submitSelector, request.useEnterToSubmit);
+    performSearch(request.keyword, request.inputSelector, request.submitSelector, request.useEnterToSubmit);
     sendResponse({success: true});
     return true; // Indicates that the response will be sent asynchronously
   }
@@ -64,20 +64,8 @@ function generateSelector(element) {
   return path.join(' > ');
 }
 
-function performSearch(keywords, inputSelector, submitSelector, useEnterToSubmit) {
-  console.log('Performing search for keywords:', keywords);
-  processKeywords(keywords, 0, inputSelector, submitSelector, useEnterToSubmit);
-}
-
-function processKeywords(keywords, index, inputSelector, submitSelector, useEnterToSubmit) {
-  if (index >= keywords.length) {
-    console.log('All keywords processed');
-    return;
-  }
-
-  const keyword = keywords[index];
-  console.log(`Processing keyword ${index + 1}/${keywords.length}: ${keyword}`);
-
+function performSearch(keyword, inputSelector, submitSelector, useEnterToSubmit) {
+  console.log('Performing search for keyword:', keyword);
   const inputElement = document.querySelector(inputSelector);
   if (inputElement) {
     // Set the value and trigger input event
@@ -95,19 +83,11 @@ function processKeywords(keywords, index, inputSelector, submitSelector, useEnte
         console.log('No form found, simulating Enter key press');
         inputElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
       }
-
-      // Wait for page to load before processing the next keyword
-      setTimeout(() => {
-        processKeywords(keywords, index + 1, inputSelector, submitSelector, useEnterToSubmit);
-      }, 5000); // Adjust this delay as needed
     }, 1000);
   } else {
     console.error('Input element not found');
-    // Move to the next keyword even if there's an error
-    setTimeout(() => {
-      processKeywords(keywords, index + 1, inputSelector, submitSelector, useEnterToSubmit);
-    }, 1000);
   }
+  return true; // Indicate that the search was performed
 }
 
 console.log('Content script loaded');
