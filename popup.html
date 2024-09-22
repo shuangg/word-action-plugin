@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Search Action Replay</title>
+  <style>
+    body { width: 300px; padding: 10px; font-family: Arial, sans-serif; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, textarea, button { width: 100%; margin-bottom: 10px; padding: 5px; }
+    textarea { height: 100px; resize: vertical; }
+    button { cursor: pointer; background-color: #4CAF50; color: white; border: none; margin-top: 10px; }
+    button:hover { background-color: #45a049; }
+  </style>
+</head>
+<body>
+  <label for="url">Target URL:</label>
+  <input type="text" id="url" placeholder="Enter URL">
+
+  <label for="keyword">Search Keywords:</label>
+  <textarea id="keyword" placeholder="Enter search keywords (one per line)"></textarea>
+
+  <label for="inputSelector">Input Field Selector:</label>
+  <input type="text" id="inputSelector" placeholder="Input field selector">
+  <button id="selectInputButton">Select Input Field</button>
+
+  <label for="submitSelector">Submit Button Selector:</label>
+  <input type="text" id="submitSelector" placeholder="Enter submit button selector (optional)">
+
+  <button id="saveButton">Save</button>
+  <button id="searchButton">Perform Search</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>
