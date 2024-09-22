@@ -2,122 +2,107 @@ console.log('Content script loaded and running');
 
 let isSelectMode = false;
 let selectMode = '';
-let startUrl = '';
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Content script received message:', request);
   if (request.action === "startSelectMode") {
     isSelectMode = true;
     selectMode = request.mode;
-    startUrl = request.startUrl;
     document.body.style.cursor = 'crosshair';
-    alert(`Click on the ${selectMode} you want to use.`);
-    console.log('Select mode started:', selectMode);
+    if (selectMode === 'input') {
+      alert('Please click on the input field you want to select.');
+    } else if (selectMode === 'submit') {
+      alert('Please click on the submit button or link you want to select.');
+    } else if (selectMode === 'output') {
+      alert('Please click on the output area you want to select.');
+    }
     sendResponse({success: true});
-    return true; // Indicates that the response will be sent asynchronously
   } else if (request.action === "performSearch") {
-    console.log('Received performSearch message:', request);
-    performSearch(request.keyword, request.inputSelector, request.submitSelector, request.outputSelector, request.useEnterToSubmit)
-      .then(result => sendResponse({success: true, result: result}))
-      .catch(error => sendResponse({success: false, error: error.message}));
-    return true; // Indicates that the response will be sent asynchronously
-  } else if (request.action === "checkPageReady") {
-    // You can add more sophisticated checks here if needed
-    sendResponse({ready: document.readyState === "complete"});
+    waitForPageReady()
+      .then(() => performSearch(request))
+      .then(result => {
+        console.log('Search performed successfully:', result);
+        sendResponse({success: true, result: result});
+      })
+      .catch(error => {
+        console.error('Search failed:', error);
+        sendResponse({success: false, error: error.message});
+      });
     return true; // Indicates that the response will be sent asynchronously
   }
 });
 
-document.addEventListener('click', (e) => {
+function waitForPageReady() {
+  return new Promise((resolve) => {
+    if (document.readyState === 'complete') {
+      resolve();
+    } else {
+      window.addEventListener('load', resolve);
+    }
+  });
+}
+
+document.addEventListener('click', function(e) {
   if (isSelectMode) {
     e.preventDefault();
     e.stopPropagation();
-    isSelectMode = false;
-    document.body.style.cursor = 'default';
     
-    const currentUrl = window.location.href;
-    if (!currentUrl.includes(startUrl)) {
-      alert(`Error: The current page URL (${currentUrl}) does not contain the starting URL (${startUrl}). Please navigate to the correct page first.`);
-      return false;
-    }
-    
-    let element = e.target;
-    let selector = generateSelector(element);
+    let selector = generateSelector(e.target);
     
     chrome.runtime.sendMessage({
-      action: selectMode === 'input field' ? 'inputSelected' : 'outputSelected',
+      action: selectMode + "Selected",
       selector: selector
     });
     
-    console.log(`${selectMode} selected:`, selector);
-    alert(`${selectMode} selected: ` + selector);
-    return false;
+    isSelectMode = false;
+    selectMode = '';
+    document.body.style.cursor = 'default';
   }
-});
+}, true);
 
 function generateSelector(element) {
   if (element.id) {
-    return '#' + CSS.escape(element.id);
+    return '#' + element.id;
   }
   if (element.className) {
-    return '.' + element.className.split(' ').map(c => CSS.escape(c)).join('.');
+    return '.' + element.className.split(' ').join('.');
   }
-  let path = [];
-  while (element.nodeType === Node.ELEMENT_NODE) {
-    let selector = element.nodeName.toLowerCase();
-    if (element.id) {
-      selector += '#' + CSS.escape(element.id);
-      path.unshift(selector);
-      break;
-    } else {
-      let sibling = element;
-      let nth = 1;
-      while (sibling = sibling.previousElementSibling) {
-        if (sibling.nodeName.toLowerCase() === selector)
-          nth++;
-      }
-      if (nth !== 1)
-        selector += ":nth-of-type("+nth+")";
-    }
-    path.unshift(selector);
-    element = element.parentNode;
+  let selector = element.tagName.toLowerCase();
+  let parent = element.parentNode;
+  if (parent && parent !== document) {
+    selector = generateSelector(parent) + ' > ' + selector;
   }
-  return path.join(' > ');
+  return selector;
 }
 
-async function performSearch(keyword, inputSelector, submitSelector, outputSelector, useEnterToSubmit) {
-  console.log('Performing search for keyword:', keyword);
-  const inputElement = document.querySelector(inputSelector);
-  if (inputElement) {
-    // Set the value and trigger input event
-    inputElement.value = keyword;
-    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-    inputElement.dispatchEvent(new Event('change', { bubbles: true }));
-
-    // Submit the form
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const form = inputElement.closest('form');
-    if (form) {
-      console.log('Submitting form');
-      form.submit();
-    } else {
-      console.log('No form found, simulating Enter key press');
-      inputElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
-    }
-
-    // Wait for the results to load
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Get the output
-    const outputElement = document.querySelector(outputSelector);
-    if (outputElement) {
-      return outputElement.innerText || outputElement.textContent;
-    } else {
-      throw new Error('Output element not found');
-    }
-  } else {
+async function performSearch(request) {
+  console.log('Performing search with request:', request);
+  const inputElement = document.querySelector(request.inputSelector);
+  if (!inputElement) {
     throw new Error('Input element not found');
   }
+
+  inputElement.value = request.keyword;
+  inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+
+  if (request.useEnterToSubmit) {
+    inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  } else {
+    const submitElement = document.querySelector(request.submitSelector);
+    if (!submitElement) {
+      throw new Error('Submit element not found');
+    }
+    submitElement.click();
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 10000)); // Increased wait time to 10 seconds
+
+  const outputElement = document.querySelector(request.outputSelector);
+  if (!outputElement) {
+    throw new Error('Output element not found');
+  }
+
+  return outputElement.textContent.trim();
 }
 
 console.log('Content script setup complete');
