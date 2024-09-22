@@ -6,7 +6,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     document.body.style.cursor = 'crosshair';
     alert('Click on the input field you want to use for searching.');
   } else if (request.action === "performSearch") {
-    performSearch(request.keyword, request.inputSelector, request.submitSelector, request.useEnterToSubmit);
+    console.log('Received performSearch message:', request);
+    performSearch(request.keywords, request.inputSelector, request.submitSelector, request.useEnterToSubmit);
+    sendResponse({success: true});
+    return true; // Indicates that the response will be sent asynchronously
   }
 });
 
@@ -61,47 +64,49 @@ function generateSelector(element) {
   return path.join(' > ');
 }
 
-function performSearch(keyword, inputSelector, submitSelector, useEnterToSubmit) {
-  console.log('Performing search:', keyword, inputSelector, submitSelector, useEnterToSubmit);
+function performSearch(keywords, inputSelector, submitSelector, useEnterToSubmit) {
+  console.log('Performing search for keywords:', keywords);
+  processKeywords(keywords, 0, inputSelector, submitSelector, useEnterToSubmit);
+}
+
+function processKeywords(keywords, index, inputSelector, submitSelector, useEnterToSubmit) {
+  if (index >= keywords.length) {
+    console.log('All keywords processed');
+    return;
+  }
+
+  const keyword = keywords[index];
+  console.log(`Processing keyword ${index + 1}/${keywords.length}: ${keyword}`);
+
   const inputElement = document.querySelector(inputSelector);
   if (inputElement) {
     // Set the value and trigger input event
     inputElement.value = keyword;
     inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-    
-    // Trigger change event
     inputElement.dispatchEvent(new Event('change', { bubbles: true }));
 
-    // Small delay to ensure the value is set
+    // Submit the form
     setTimeout(() => {
-      if (useEnterToSubmit) {
-        // Simulate pressing Enter
-        const form = inputElement.closest('form');
-        if (form) {
-          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        } else {
-          inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-        }
-      } else if (submitSelector) {
-        // Click the submit button
-        const submitButton = document.querySelector(submitSelector);
-        if (submitButton) {
-          submitButton.click();
-        } else {
-          console.error('Submit button not found');
-        }
+      const form = inputElement.closest('form');
+      if (form) {
+        console.log('Submitting form');
+        form.submit();
       } else {
-        // If no submit method is specified, try to submit the form
-        const form = inputElement.closest('form');
-        if (form) {
-          form.submit();
-        } else {
-          console.error('No form found and no submit method specified');
-        }
+        console.log('No form found, simulating Enter key press');
+        inputElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
       }
-    }, 100);
+
+      // Wait for page to load before processing the next keyword
+      setTimeout(() => {
+        processKeywords(keywords, index + 1, inputSelector, submitSelector, useEnterToSubmit);
+      }, 5000); // Adjust this delay as needed
+    }, 1000);
   } else {
     console.error('Input element not found');
+    // Move to the next keyword even if there's an error
+    setTimeout(() => {
+      processKeywords(keywords, index + 1, inputSelector, submitSelector, useEnterToSubmit);
+    }, 1000);
   }
 }
 

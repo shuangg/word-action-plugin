@@ -64,9 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
       useEnterToSubmit: elements.useEnterToSubmitCheckbox.checked
     }, (response) => {
       if (chrome.runtime.lastError) {
-        console.error('Error sending message:', chrome.runtime.lastError);
+        console.error('Error sending message:', chrome.runtime.lastError.message);
+        alert(`Error performing search: ${chrome.runtime.lastError.message}`);
       } else {
-        console.log('Search message sent successfully');
+        console.log('Search message sent successfully', response);
+        alert('Search initiated. Check the opened tab for results.');
       }
     });
   });

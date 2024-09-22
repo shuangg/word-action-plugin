@@ -25,18 +25,24 @@ chrome.windows.onRemoved.addListener((windowId) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request);
   if (request.action === "performSearch") {
-    performSearch(request);
+    performSearch(request)
+      .then(() => sendResponse({success: true}))
+      .catch((error) => sendResponse({success: false, error: error.message}));
+    return true; // Indicates that the response will be sent asynchronously
   } else if (request.action === "startSelectMode") {
     if (currentTabId) {
       chrome.tabs.sendMessage(currentTabId, {action: "startSelectMode"});
+      sendResponse({success: true});
     } else {
       console.error('No current tab to start select mode');
+      sendResponse({success: false, error: 'No current tab to start select mode'});
     }
   } else if (request.action === "inputSelected") {
     // Relay the message to the popup
     chrome.runtime.sendMessage({action: "inputSelected", selector: request.selector});
     // Also update the storage
     chrome.storage.sync.set({inputSelector: request.selector});
+    sendResponse({success: true});
   } else if (request.action === "openStartUrl") {
     openStartUrl(request.startUrl, sendResponse);
     return true; // Indicates that the response will be sent asynchronously
@@ -57,37 +63,45 @@ function openStartUrl(startUrl, sendResponse) {
 }
 
 function performSearch(request) {
-  console.log('Performing search:', request);
-  if (!request.startUrl) {
-    console.error('No starting URL provided for search');
-    return;
-  }
-
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    if (tabs[0] && tabs[0].url === request.startUrl) {
-      // We're already on the correct page, proceed with search
-      continueSearch(tabs[0].id, request);
-    } else {
-      // We need to navigate to the starting URL first
-      chrome.tabs.create({ url: request.startUrl }, (tab) => {
-        chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-          if (tabId === tab.id && info.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(listener);
-            continueSearch(tab.id, request);
-          }
-        });
-      });
+  return new Promise((resolve, reject) => {
+    console.log('Performing search:', request);
+    if (!request.startUrl) {
+      reject(new Error('No starting URL provided for search'));
+      return;
     }
+
+    chrome.tabs.create({ url: request.startUrl }, (tab) => {
+      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+        if (tabId === tab.id && info.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(listener);
+          setTimeout(() => {
+            continueSearch(tab.id, request)
+              .then(resolve)
+              .catch(reject);
+          }, 1000); // Wait for 1 second after page load before continuing the search
+        }
+      });
+    });
   });
 }
 
 function continueSearch(tabId, request) {
-  // Send a message to the content script to perform the search
-  chrome.tabs.sendMessage(tabId, {
-    action: "performSearch",
-    keyword: request.keywords[0], // For now, just use the first keyword
-    inputSelector: request.inputSelector,
-    submitSelector: request.submitSelector,
-    useEnterToSubmit: request.useEnterToSubmit  // Make sure this line is present
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, {
+      action: "performSearch",
+      keywords: request.keywords, // Pass all keywords
+      inputSelector: request.inputSelector,
+      submitSelector: request.submitSelector,
+      useEnterToSubmit: request.useEnterToSubmit
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(`Error sending message to content script: ${chrome.runtime.lastError.message}`));
+      } else if (response && response.success) {
+        console.log('Search performed successfully');
+        resolve();
+      } else {
+        reject(new Error('Search failed or no response from content script'));
+      }
+    });
   });
 }
