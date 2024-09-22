@@ -13,6 +13,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 document.addEventListener('click', (e) => {
   if (isSelectMode) {
     e.preventDefault();
+    e.stopPropagation();
     isSelectMode = false;
     document.body.style.cursor = 'default';
     
@@ -24,24 +25,40 @@ document.addEventListener('click', (e) => {
       selector: selector
     });
     
+    console.log('Input field selected:', selector);
     alert('Input field selected: ' + selector);
+    return false;
   }
 });
 
 function generateSelector(element) {
   if (element.id) {
-    return '#' + element.id;
+    return '#' + CSS.escape(element.id);
   }
   if (element.className) {
-    return '.' + element.className.split(' ').join('.');
+    return '.' + element.className.split(' ').map(c => CSS.escape(c)).join('.');
   }
-  let selector = element.tagName.toLowerCase();
-  let siblings = element.parentNode.children;
-  if (siblings.length > 1) {
-    let index = Array.from(siblings).indexOf(element);
-    selector += `:nth-child(${index + 1})`;
+  let path = [];
+  while (element.nodeType === Node.ELEMENT_NODE) {
+    let selector = element.nodeName.toLowerCase();
+    if (element.id) {
+      selector += '#' + CSS.escape(element.id);
+      path.unshift(selector);
+      break;
+    } else {
+      let sibling = element;
+      let nth = 1;
+      while (sibling = sibling.previousElementSibling) {
+        if (sibling.nodeName.toLowerCase() === selector)
+          nth++;
+      }
+      if (nth !== 1)
+        selector += ":nth-of-type("+nth+")";
+    }
+    path.unshift(selector);
+    element = element.parentNode;
   }
-  return selector;
+  return path.join(' > ');
 }
 
 function performSearch(keyword, inputSelector, submitSelector) {
