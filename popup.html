@@ -34,34 +34,66 @@
     button:hover { 
       background-color: #45a049; 
     }
+    .step {
+      margin-top: 20px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+    .step-number {
+      font-weight: bold;
+      font-size: 1.2em;
+      color: #4CAF50;
+    }
   </style>
 </head>
 <body>
   <h1>Search Action Replay</h1>
 
-  <label for="startUrl">Starting URL:</label>
-  <input type="text" id="startUrl" placeholder="Enter starting URL">
-  <button id="confirmStartUrl">Confirm Starting URL</button>
-
-  <label for="keyword">Search Keywords:</label>
-  <textarea id="keyword" placeholder="Enter search keywords (one per line)"></textarea>
-
-  <label for="inputSelector">Input Field Selector:</label>
-  <input type="text" id="inputSelector" placeholder="Input field selector">
-  <button id="reselectInputButton">Reselect Input Field</button>
-
-  <label for="submitSelector">Submit Button Selector:</label>
-  <input type="text" id="submitSelector" placeholder="Enter submit button selector (optional)">
-
-  <div>
-    <input type="checkbox" id="useEnterToSubmit">
-    <label for="useEnterToSubmit">Use Enter key to submit form</label>
+  <div class="step">
+    <span class="step-number">Step 1:</span> Set Starting URL
+    <label for="startUrl">Starting URL:</label>
+    <input type="text" id="startUrl" placeholder="Enter starting URL">
+    <button id="confirmStartUrl">Confirm Starting URL</button>
   </div>
 
-  <div class="button-group">
-    <button id="saveButton">Save</button>
-    <button id="searchButton">Perform Search</button>
+  <div class="step">
+    <span class="step-number">Step 2:</span> Select Input Field
+    <label for="inputSelector">Input Field Selector:</label>
+    <input type="text" id="inputSelector" placeholder="Input field selector">
+    <button id="reselectInputButton">Select Input Field</button>
   </div>
+
+  <div class="step">
+    <span class="step-number">Step 3:</span> Select Submit Element
+    <label for="submitSelector">Submit Element Selector:</label>
+    <input type="text" id="submitSelector" placeholder="Enter submit button/link selector">
+    <button id="reselectSubmitButton">Select Submit Element</button>
+    <div>
+      <input type="checkbox" id="useEnterToSubmit">
+      <label for="useEnterToSubmit">Use Enter key to submit form</label>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 4:</span> Select Output
+    <label for="outputSelector">Output Selector:</label>
+    <input type="text" id="outputSelector" placeholder="Output selector">
+    <button id="reselectOutputButton">Select Output</button>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 5:</span> Save Settings
+    <button id="saveButton">Save Settings</button>
+  </div>
+
+  <div class="step">
+    <span class="step-number">Step 6:</span> Perform Search Loop
+    <label for="keyword">Search Keywords:</label>
+    <textarea id="keyword" placeholder="Enter search keywords (one per line)"></textarea>
+    <button id="searchButton">Perform Search Loop</button>
+  </div>
+
+  <div id="searchResults"></div>
 
   <script src="popup.js"></script>
 </body>

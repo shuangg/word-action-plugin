@@ -1,14 +1,29 @@
+console.log('Content script loaded and running');
+
 let isSelectMode = false;
+let selectMode = '';
+let startUrl = '';
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content script received message:', request);
   if (request.action === "startSelectMode") {
     isSelectMode = true;
+    selectMode = request.mode;
+    startUrl = request.startUrl;
     document.body.style.cursor = 'crosshair';
-    alert('Click on the input field you want to use for searching.');
+    alert(`Click on the ${selectMode} you want to use.`);
+    console.log('Select mode started:', selectMode);
+    sendResponse({success: true});
+    return true; // Indicates that the response will be sent asynchronously
   } else if (request.action === "performSearch") {
     console.log('Received performSearch message:', request);
-    performSearch(request.keyword, request.inputSelector, request.submitSelector, request.useEnterToSubmit);
-    sendResponse({success: true});
+    performSearch(request.keyword, request.inputSelector, request.submitSelector, request.outputSelector, request.useEnterToSubmit)
+      .then(result => sendResponse({success: true, result: result}))
+      .catch(error => sendResponse({success: false, error: error.message}));
+    return true; // Indicates that the response will be sent asynchronously
+  } else if (request.action === "checkPageReady") {
+    // You can add more sophisticated checks here if needed
+    sendResponse({ready: document.readyState === "complete"});
     return true; // Indicates that the response will be sent asynchronously
   }
 });
@@ -20,16 +35,22 @@ document.addEventListener('click', (e) => {
     isSelectMode = false;
     document.body.style.cursor = 'default';
     
+    const currentUrl = window.location.href;
+    if (!currentUrl.includes(startUrl)) {
+      alert(`Error: The current page URL (${currentUrl}) does not contain the starting URL (${startUrl}). Please navigate to the correct page first.`);
+      return false;
+    }
+    
     let element = e.target;
     let selector = generateSelector(element);
     
     chrome.runtime.sendMessage({
-      action: 'inputSelected',
+      action: selectMode === 'input field' ? 'inputSelected' : 'outputSelected',
       selector: selector
     });
     
-    console.log('Input field selected:', selector);
-    alert('Input field selected: ' + selector);
+    console.log(`${selectMode} selected:`, selector);
+    alert(`${selectMode} selected: ` + selector);
     return false;
   }
 });
@@ -64,7 +85,7 @@ function generateSelector(element) {
   return path.join(' > ');
 }
 
-function performSearch(keyword, inputSelector, submitSelector, useEnterToSubmit) {
+async function performSearch(keyword, inputSelector, submitSelector, outputSelector, useEnterToSubmit) {
   console.log('Performing search for keyword:', keyword);
   const inputElement = document.querySelector(inputSelector);
   if (inputElement) {
@@ -74,20 +95,29 @@ function performSearch(keyword, inputSelector, submitSelector, useEnterToSubmit)
     inputElement.dispatchEvent(new Event('change', { bubbles: true }));
 
     // Submit the form
-    setTimeout(() => {
-      const form = inputElement.closest('form');
-      if (form) {
-        console.log('Submitting form');
-        form.submit();
-      } else {
-        console.log('No form found, simulating Enter key press');
-        inputElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
-      }
-    }, 1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const form = inputElement.closest('form');
+    if (form) {
+      console.log('Submitting form');
+      form.submit();
+    } else {
+      console.log('No form found, simulating Enter key press');
+      inputElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
+    }
+
+    // Wait for the results to load
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Get the output
+    const outputElement = document.querySelector(outputSelector);
+    if (outputElement) {
+      return outputElement.innerText || outputElement.textContent;
+    } else {
+      throw new Error('Output element not found');
+    }
   } else {
-    console.error('Input element not found');
+    throw new Error('Input element not found');
   }
-  return true; // Indicate that the search was performed
 }
 
-console.log('Content script loaded');
+console.log('Content script setup complete');

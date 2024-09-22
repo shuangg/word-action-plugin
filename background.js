@@ -2,18 +2,7 @@ let popupWindowId = null;
 let currentTabId = null;
 
 chrome.action.onClicked.addListener((tab) => {
-  if (popupWindowId === null) {
-    chrome.windows.create({
-      url: 'popup.html',
-      type: 'popup',
-      width: 400,
-      height: 600
-    }, (window) => {
-      popupWindowId = window.id;
-    });
-  } else {
-    chrome.windows.update(popupWindowId, { focused: true });
-  }
+  chrome.sidePanel.open({ tabId: tab.id });
 });
 
 chrome.windows.onRemoved.addListener((windowId) => {
@@ -31,17 +20,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Indicates that the response will be sent asynchronously
   } else if (request.action === "startSelectMode") {
     if (currentTabId) {
-      chrome.tabs.sendMessage(currentTabId, {action: "startSelectMode"});
+      chrome.tabs.sendMessage(currentTabId, {action: "startSelectMode", mode: request.mode});
       sendResponse({success: true});
     } else {
       console.error('No current tab to start select mode');
       sendResponse({success: false, error: 'No current tab to start select mode'});
     }
-  } else if (request.action === "inputSelected") {
+  } else if (request.action === "inputSelected" || request.action === "outputSelected") {
     // Relay the message to the popup
-    chrome.runtime.sendMessage({action: "inputSelected", selector: request.selector});
+    chrome.runtime.sendMessage(request);
     // Also update the storage
-    chrome.storage.sync.set({inputSelector: request.selector});
+    chrome.storage.sync.set({[request.action === "inputSelected" ? "inputSelector" : "outputSelector"]: request.selector});
     sendResponse({success: true});
   } else if (request.action === "openStartUrl") {
     openStartUrl(request.startUrl, sendResponse);
@@ -87,36 +76,37 @@ function processKeywords(request, index) {
     const keyword = request.keywords[index];
     console.log(`Processing keyword ${index + 1}/${request.keywords.length}: ${keyword}`);
 
-    chrome.tabs.create({ url: request.startUrl }, (tab) => {
-      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-        if (tabId === tab.id && info.status === 'complete') {
-          chrome.tabs.onUpdated.removeListener(listener);
-          setTimeout(() => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: "performSearch",
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: "performSearch",
+          keyword: keyword,
+          inputSelector: request.inputSelector,
+          submitSelector: request.submitSelector,
+          outputSelector: request.outputSelector,
+          useEnterToSubmit: request.useEnterToSubmit
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(`Error sending message to content script: ${chrome.runtime.lastError.message}`));
+          } else if (response && response.success) {
+            console.log(`Search performed successfully for keyword: ${keyword}`);
+            chrome.runtime.sendMessage({
+              action: "searchResult",
               keyword: keyword,
-              inputSelector: request.inputSelector,
-              submitSelector: request.submitSelector,
-              useEnterToSubmit: request.useEnterToSubmit
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(`Error sending message to content script: ${chrome.runtime.lastError.message}`));
-              } else if (response && response.success) {
-                console.log(`Search performed successfully for keyword: ${keyword}`);
-                setTimeout(() => {
-                  chrome.tabs.remove(tab.id, () => {
-                    processKeywords(request, index + 1)
-                      .then(resolve)
-                      .catch(reject);
-                  });
-                }, 5000); // Wait for 5 seconds before closing the tab and moving to the next keyword
-              } else {
-                reject(new Error(`Search failed for keyword: ${keyword}`));
-              }
+              result: response.result
             });
-          }, 1000); // Wait for 1 second after page load before performing the search
-        }
-      });
+            setTimeout(() => {
+              processKeywords(request, index + 1)
+                .then(resolve)
+                .catch(reject);
+            }, 5000); // Wait for 5 seconds before moving to the next keyword
+          } else {
+            reject(new Error(`Search failed for keyword: ${keyword}`));
+          }
+        });
+      } else {
+        reject(new Error('No active tab found'));
+      }
     });
   });
 }
